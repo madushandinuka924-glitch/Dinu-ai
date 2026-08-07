@@ -16,7 +16,7 @@
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-      import { getFirestore, collection, addDoc, doc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyD9pm5dM5cFonPd2wkGW3-Mgk2Cy26hPQc",
@@ -39,6 +39,7 @@
       window.collection = collection;
       window.addDoc = addDoc;
       window.doc = doc;
+      window.updateDoc = updateDoc;
       window.deleteDoc = deleteDoc;
       window.query = query;
       window.orderBy = orderBy;
@@ -67,7 +68,6 @@
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       .dark ::-webkit-scrollbar-thumb { background: #334155; }
       .sidebar-transition { transition: transform 0.3s ease-in-out; }
-      /* Mobile Viewport Fix */
       .app-height { height: 100vh; height: 100dvh; }
     </style>
 </head>
@@ -146,11 +146,11 @@
             <!-- Welcome Container -->
             <div id="welcome-container" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3 overflow-y-auto">
                 <div class="p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/20"><i class="fa-solid fa-wand-magic-sparkles text-3xl"></i></div>
-                <h1 class="text-2xl md:text-3xl font-extrabold">How can I help you today?</h1>
-                <p class="text-xs text-slate-400 max-w-xs md:max-w-sm">Ask anything, generate images, search the web, or analyze attached files!</p>
+                <h1 class="text-2xl md:text-3xl font-extrabold">Welcome to Dinu AI!</h1>
+                <p class="text-xs text-slate-400 max-w-xs md:max-w-sm">How can I help you today? Created by Dinuka Madushan.</p>
             </div>
 
-            <!-- Input Controls (Fixed Bottom Bar) -->
+            <!-- Input Controls -->
             <footer class="p-3 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shrink-0 w-full">
                 <div class="max-w-3xl mx-auto w-full">
                     <div id="file-preview" class="hidden text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded-xl mb-2 flex justify-between items-center">
@@ -164,7 +164,7 @@
                         
                         <button id="mic-btn" onclick="toggleVoiceInput()" class="text-slate-400 hover:text-purple-600 p-1.5" title="Voice Input"><i class="fa-solid fa-microphone"></i></button>
 
-                        <textarea id="user-input" rows="1" class="w-full bg-transparent focus:outline-none p-1 text-sm resize-none max-h-24" placeholder="Ask, search, or generate..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                        <textarea id="user-input" rows="1" class="w-full bg-transparent focus:outline-none p-1 text-sm resize-none max-h-24" placeholder="Ask Dinu AI..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
                         
                         <button onclick="sendMessage()" class="gradient-bg text-white px-3 py-2 rounded-xl shadow-md shrink-0"><i class="fa-solid fa-paper-plane text-xs"></i></button>
                     </div>
@@ -174,7 +174,12 @@
     </div>
 
     <script>
-        const GROQ_API_KEY = "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"; // 🔑 Put your Groq Key here
+        // 🔑 ඔබට අවශ්‍ය Groq API Key එක මෙතැනට ඇතුළත් කරන්න (Groq Dashboard එකෙන් ලබාගත හැක)
+        const GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"; 
+        
+        // Dinu AI සඳහා වන System Instruction (හැදුවේ කවුදැයි ඇසුවහොත් දිනුක මධුෂාන් ලෙස පවසයි)
+        const SYSTEM_PROMPT = "Your name is Dinu AI. You were created and developed by Dinuka Madushan (දිනුක මධුෂාන්). If anyone asks who made you, created you, or developed you, always mention that Dinuka Madushan created you.";
+
         let currentSessionId = null;
         let attachedFile = null;
         let recognition = null;
@@ -193,8 +198,12 @@
         async function handleAuth(isSignup) {
             const email = document.getElementById('auth-email').value;
             const pass = document.getElementById('auth-password').value;
-            if (isSignup) await window.createUserWithEmailAndPassword(window.auth, email, pass);
-            else await window.signInWithEmailAndPassword(window.auth, email, pass);
+            try {
+                if (isSignup) await window.createUserWithEmailAndPassword(window.auth, email, pass);
+                else await window.signInWithEmailAndPassword(window.auth, email, pass);
+            } catch (err) {
+                alert(err.message);
+            }
         }
 
         function toggleVoiceInput() {
@@ -231,17 +240,17 @@
             window.onSnapshot(q, (snapshot) => {
                 list.innerHTML = '';
                 if (snapshot.empty) { startNewSession(); return; }
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const active = doc.id === currentSessionId ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400';
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const active = docSnap.id === currentSessionId ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400';
                     list.innerHTML += `
-                        <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${doc.id}', '${data.title}')">
-                            <span class="truncate w-36 md:w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title}</span>
-                            <button onclick="deleteSession(event, '${doc.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${docSnap.id}', '${data.title || 'New Chat'}')">
+                            <span class="truncate w-36 md:w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title || 'New Chat'}</span>
+                            <button onclick="deleteSession(event, '${docSnap.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                     `;
                 });
-                if (!currentSessionId && !snapshot.empty) switchSession(snapshot.docs[0].id, snapshot.docs[0].data().title);
+                if (!currentSessionId && !snapshot.empty) switchSession(snapshot.docs[0].id, snapshot.docs[0].data().title || "New Chat");
             });
         }
 
@@ -269,7 +278,10 @@
         async function deleteSession(e, id) {
             e.stopPropagation();
             await window.deleteDoc(window.doc(window.db, "users", window.auth.currentUser.uid, "sessions", id));
-            if (currentSessionId === id) startNewSession();
+            if (currentSessionId === id) {
+                currentSessionId = null;
+                startNewSession();
+            }
         }
 
         function loadMessages(sessionId) {
@@ -281,7 +293,7 @@
                 if (!snapshot.empty) { welcome.classList.add('hidden'); chatContainer.classList.remove('hidden'); }
                 else { welcome.classList.remove('hidden'); chatContainer.classList.add('hidden'); }
                 chatContainer.innerHTML = '';
-                snapshot.forEach(doc => appendMessageUI(doc.data().text, doc.data().sender));
+                snapshot.forEach(docSnap => appendMessageUI(docSnap.data().text, docSnap.data().sender));
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             });
         }
@@ -320,7 +332,7 @@
         function appendMessageUI(text, sender) {
             const chatHistory = document.getElementById('chat-history');
             const isImage = text.startsWith('[IMAGE_GEN]:');
-            const content = isImage ? `<img src="${text.split(':')[1]}" class="rounded-xl w-full shadow-md">` : text;
+            const content = isImage ? `<img src="${text.replace('[IMAGE_GEN]:', '')}" class="rounded-xl w-full shadow-md">` : text;
 
             chatHistory.innerHTML += `
                 <div class="flex ${sender === 'user' ? 'justify-end' : 'justify-start'}">
@@ -348,9 +360,12 @@
             const chatTitle = document.getElementById('current-chat-title').innerText;
             if (chatTitle === "New Chat" || chatTitle === "New Conversation") {
                 const newTitle = text.slice(0, 20) + "...";
-                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId), { title: newTitle }, { merge: true });
+                const sessionRef = window.doc(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId);
+                await window.updateDoc(sessionRef, { title: newTitle });
+                document.getElementById('current-chat-title').innerText = newTitle;
             }
 
+            // Image generation trigger
             if (text.toLowerCase().includes('generate') || text.toLowerCase().includes('create an image') || text.toLowerCase().includes('draw')) {
                 const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?nologo=true`;
                 await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
@@ -372,20 +387,32 @@
             input.value = '';
             clearFile();
 
+            if (!GROQ_API_KEY || GROQ_API_KEY === "YOUR_GROQ_API_KEY_HERE") {
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { 
+                    text: "කරුණාකර JavaScript කොටසේ GROQ_API_KEY එක ඇතුළත් කරන්න. (Please provide a valid Groq API Key).", 
+                    sender: 'ai', 
+                    createdAt: window.serverTimestamp() 
+                });
+                return;
+            }
+
             try {
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: "llama-3.3-70b-versatile",
-                        messages: [{ role: "user", content: fullPrompt }]
+                        messages: [
+                            { role: "system", content: SYSTEM_PROMPT },
+                            { role: "user", content: fullPrompt }
+                        ]
                     })
                 });
                 const data = await res.json();
-                const reply = data.choices[0]?.message?.content || "No answer received.";
+                const reply = data.choices[0]?.message?.content || "කණගාටුයි, මට පිළිතුරක් ලබා දීමට නොහැකි විය.";
                 await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: reply, sender: 'ai', createdAt: window.serverTimestamp() });
-            } catch {
-                alert("Error connecting to AI service. Please check API key.");
+            } catch (err) {
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: "AI සේවාව සමඟ සම්බන්ධ වීමේ දෝෂයක් සිදු විය.", sender: 'ai', createdAt: window.serverTimestamp() });
             }
         }
 
