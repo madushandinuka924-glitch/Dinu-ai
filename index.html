@@ -8,6 +8,7 @@
     <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Firebase SDK (Version 10+) -->
     <script type="module">
@@ -21,8 +22,16 @@
         signOut, 
         onAuthStateChanged 
       } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+      import { 
+        getFirestore, 
+        collection, 
+        addDoc, 
+        query, 
+        orderBy, 
+        onSnapshot, 
+        serverTimestamp 
+      } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-      // Updated Firebase Config
       const firebaseConfig = {
         apiKey: "AIzaSyD9pm5dM5cFonPd2wkGW3-Mgk2Cy26hPQc",
         authDomain: "dinu-ai-9030e.firebaseapp.com",
@@ -33,20 +42,27 @@
         measurementId: "G-FDZ61ZQSEN"
       };
 
-      // Initialize Firebase
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
+      const db = getFirestore(app);
       const provider = new GoogleAuthProvider();
 
-      // Make functions globally available
       window.auth = auth;
+      window.db = db;
       window.provider = provider;
       window.signInWithPopup = signInWithPopup;
       window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
       window.signInWithEmailAndPassword = signInWithEmailAndPassword;
       window.signOut = signOut;
+      window.collection = collection;
+      window.addDoc = addDoc;
+      window.query = query;
+      window.orderBy = orderBy;
+      window.onSnapshot = onSnapshot;
+      window.serverTimestamp = serverTimestamp;
 
-      // Monitor Auth State
+      let unsubscribe = null;
+
       onAuthStateChanged(auth, (user) => {
         const authModal = document.getElementById('auth-modal');
         const mainApp = document.getElementById('main-app');
@@ -57,133 +73,194 @@
           mainApp.classList.remove('hidden');
           const name = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
           userDisplay.innerText = name;
+          
+          loadChatHistory(user.uid);
         } else {
           authModal.classList.remove('hidden');
           mainApp.classList.add('hidden');
+          if (unsubscribe) unsubscribe();
         }
       });
+
+      function loadChatHistory(userId) {
+        const chatContainer = document.getElementById('chat-history');
+        const welcomeContainer = document.getElementById('welcome-container');
+        
+        const q = query(
+          collection(db, "users", userId, "messages"),
+          orderBy("createdAt", "asc")
+        );
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            welcomeContainer.classList.add('hidden');
+            chatContainer.classList.remove('hidden');
+          } else {
+            welcomeContainer.classList.remove('hidden');
+            chatContainer.classList.add('hidden');
+          }
+
+          chatContainer.innerHTML = '';
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            appendMessageUI(data.text, data.sender);
+          });
+          
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+      }
+
+      window.saveMessageToDB = async function(text, sender) {
+        if (!auth.currentUser) return;
+        try {
+          await addDoc(collection(db, "users", auth.currentUser.uid, "messages"), {
+            text: text,
+            sender: sender,
+            createdAt: serverTimestamp()
+          });
+        } catch (e) {
+          console.error("Error saving chat: ", e);
+        }
+      };
     </script>
 
     <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      .gradient-bg {
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      }
       .gradient-text {
-        background: linear-gradient(135deg, #4285F4 0%, #9B51E0 50%, #EA4335 100%);
+        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #e11d48 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
-      .sparkle-icon {
-        background: linear-gradient(135deg, #4285F4, #9B51E0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+      .glass-card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
       }
     </style>
 </head>
-<body class="bg-white text-gray-800 font-sans h-screen flex flex-col justify-between overflow-hidden">
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col justify-between overflow-hidden">
 
     <!-- LOGIN / SIGNUP MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white border border-gray-200 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center">
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="bg-white border border-slate-100 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center relative overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-32 h-32 gradient-bg rounded-full blur-2xl opacity-40"></div>
+            
             <div class="mb-6 flex justify-center items-center gap-2">
-                <i class="fa-solid fa-sparkles text-2xl sparkle-icon"></i>
-                <h1 class="text-3xl font-bold tracking-tight">Dinu AI</h1>
+                <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
+                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-800">Dinu AI</h1>
             </div>
-            <p class="text-gray-500 text-sm mb-6">Welcome! Log in to access your personal AI assistant.</p>
+            <p class="text-slate-500 text-sm mb-6 font-medium">Welcome back! Sign in to access your AI workspace.</p>
 
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
-                    <input type="email" id="auth-email" placeholder="name@example.com" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Email Address</label>
+                    <input type="email" id="auth-email" placeholder="name@example.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-800 transition">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
-                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-800 transition">
                 </div>
 
-                <div id="auth-error" class="text-red-500 text-xs text-center hidden"></div>
+                <div id="auth-error" class="text-rose-500 text-xs font-medium text-center hidden bg-rose-50 p-2.5 rounded-lg border border-rose-100"></div>
 
                 <div class="flex gap-3 pt-2">
-                    <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm transition shadow-sm">Log In</button>
-                    <button onclick="handleSignup()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl text-sm transition">Sign Up</button>
+                    <button onclick="handleLogin()" class="flex-1 gradient-bg text-white font-semibold py-3 rounded-xl text-sm hover:opacity-95 transition shadow-lg shadow-purple-500/25 active:scale-95">Log In</button>
+                    <button onclick="handleSignup()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl text-sm transition active:scale-95">Sign Up</button>
                 </div>
 
                 <div class="flex items-center my-4">
-                    <div class="flex-1 border-t border-gray-200"></div>
-                    <span class="px-3 text-xs text-gray-400">OR</span>
-                    <div class="flex-1 border-t border-gray-200"></div>
+                    <div class="flex-1 border-t border-slate-200"></div>
+                    <span class="px-3 text-xs text-slate-400 font-medium">OR</span>
+                    <div class="flex-1 border-t border-slate-200"></div>
                 </div>
 
-                <button onclick="handleGoogleLogin()" class="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                    <i class="fa-brands fa-google text-red-500"></i> Continue with Google
+                <button onclick="handleGoogleLogin()" class="w-full bg-white border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-3 hover:bg-slate-50 transition shadow-sm active:scale-95">
+                    <i class="fa-brands fa-google text-red-500 text-base"></i> Continue with Google
                 </button>
             </div>
         </div>
     </div>
 
     <!-- MAIN APP INTERFACE -->
-    <div id="main-app" class="hidden flex h-screen w-full">
+    <div id="main-app" class="hidden flex h-screen w-full bg-slate-50">
         <!-- Sidebar -->
-        <aside class="w-16 flex flex-col justify-between items-center py-4 border-r border-gray-100 bg-white">
+        <aside class="w-16 border-r border-slate-200/80 bg-white flex flex-col justify-between items-center py-5 shadow-sm">
             <div class="flex flex-col items-center gap-6">
-                <button class="text-gray-500 hover:text-gray-800 p-2 rounded-lg"><i class="fa-solid fa-bars text-lg"></i></button>
-                <button class="text-gray-500 hover:text-gray-800 p-2 rounded-lg"><i class="fa-regular fa-bell text-lg"></i></button>
-                <button class="p-2 rounded-full bg-blue-50 text-blue-600"><i class="fa-solid fa-sparkles text-lg"></i></button>
+                <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                    <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+                </div>
             </div>
             <div>
-                <button onclick="handleLogout()" title="Sign Out" class="text-gray-400 hover:text-red-500 p-2 rounded-lg">
-                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                <button onclick="handleLogout()" title="Sign Out" class="w-10 h-10 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition">
+                    <i class="fa-solid fa-arrow-right-from-bracket text-base"></i>
                 </button>
             </div>
         </aside>
 
         <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col justify-between h-full bg-white relative">
-            <header class="p-4 flex justify-between items-center text-xs text-gray-500">
-                <div class="flex items-center gap-1 font-medium">
-                    <span>Dinu-AI</span>
+        <div class="flex-1 flex flex-col h-full bg-slate-50 relative">
+            <header class="h-16 px-6 bg-white/80 backdrop-blur-md border-b border-slate-200/80 flex justify-between items-center sticky top-0 z-10">
+                <div class="flex items-center gap-2.5">
+                    <span class="font-bold text-slate-800 text-base">Dinu AI</span>
+                    <span class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">v2.0</span>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button onclick="handleLogout()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition">Sign Out</button>
+                    <button onclick="handleLogout()" class="text-xs font-semibold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 px-4 py-2 rounded-xl transition">Sign Out</button>
                 </div>
             </header>
 
-            <main class="flex-1 overflow-y-auto px-6 max-w-2xl mx-auto w-full flex flex-col justify-center">
-                <div id="welcome-container" class="space-y-6">
-                    <div class="flex items-center gap-2 text-sm font-medium text-gray-800">
-                        <i class="fa-solid fa-sparkles sparkle-icon"></i>
-                        <span>Welcome to your AI assistant</span>
+            <!-- Chat / Welcome Area -->
+            <main class="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full flex flex-col">
+                <div id="welcome-container" class="my-auto space-y-6 text-center py-10">
+                    <div class="inline-flex p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/30 mb-2 animate-bounce">
+                        <i class="fa-solid fa-wand-magic-sparkles text-3xl"></i>
                     </div>
-
-                    <div class="space-y-1">
-                        <h1 class="text-4xl font-semibold text-gray-800">Hello, <span id="user-name-display" class="gradient-text font-bold">User</span></h1>
-                        <h2 class="text-4xl font-semibold text-gray-400">How can I help you today?</h2>
-                    </div>
-
-                    <div class="bg-gray-50 border border-gray-100 p-4 rounded-2xl flex items-start gap-3">
-                        <i class="fa-solid fa-sparkles sparkle-icon mt-1"></i>
-                        <p class="text-gray-700 text-sm font-medium leading-relaxed">
-                            Hey there! What are you building today? How can I help?
-                        </p>
+                    <div class="space-y-2">
+                        <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight">Hello, <span id="user-name-display" class="gradient-text">User</span></h1>
+                        <p class="text-slate-500 text-base font-medium max-w-md mx-auto">I'm Dinu-AI. Ask me anything, generate ideas, or solve complex problems!</p>
                     </div>
                 </div>
 
-                <div id="chat-history" class="space-y-4 py-4 hidden"></div>
+                <div id="chat-history" class="space-y-6 w-full hidden pb-6"></div>
             </main>
 
-            <footer class="p-4 max-w-2xl mx-auto w-full">
-                <div class="relative flex items-center bg-gray-100 rounded-full px-5 py-3 shadow-sm border border-transparent focus-within:border-gray-300">
-                    <input type="text" id="user-input" placeholder="Ask Dinu-AI..." class="w-full bg-transparent text-gray-800 focus:outline-none text-sm pr-10" onkeypress="if(event.key === 'Enter') sendMessage()">
-                    <button onclick="sendMessage()" class="absolute right-4 text-gray-400 hover:text-blue-600 transition">
-                        <i class="fa-solid fa-paper-plane"></i>
+            <!-- Input Bar -->
+            <footer class="p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/80 max-w-3xl mx-auto w-full rounded-t-3xl shadow-lg">
+                <div class="relative flex items-end bg-slate-100 rounded-2xl p-2 border border-slate-200/80 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-200 transition">
+                    <textarea id="user-input" rows="1" placeholder="Type a message..." class="w-full bg-transparent text-slate-800 focus:outline-none text-sm resize-none px-3 py-2 max-h-32 min-h-[40px]" onkeydown="handleKeyPress(event)"></textarea>
+                    <button onclick="sendMessage()" class="gradient-bg text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-md shadow-purple-500/20 hover:opacity-95 transition active:scale-95 flex-shrink-0 mb-0.5">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
                     </button>
                 </div>
-                <p class="text-[11px] text-gray-400 text-center mt-3">
-                    Dinu-AI can make mistakes, so double-check important info.
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-medium">
+                    Dinu-AI saves your conversations across all devices automatically.
                 </p>
             </footer>
         </div>
     </div>
 
     <script>
-        const GROQ_API_KEY = "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"; // console.groq.com එකෙන් ගත් Key එක මෙතනට Paste කරන්න
+        const GROQ_API_KEY = "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"; // Console.groq.com එකෙන් ගත් Key එක මෙතනට දාන්න
 
         async function handleLogin() {
             const email = document.getElementById('auth-email').value;
@@ -223,30 +300,59 @@
             errEl.classList.remove('hidden');
         }
 
+        function handleKeyPress(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function appendMessageUI(text, sender) {
+            const chatHistory = document.getElementById('chat-history');
+            if (sender === 'user') {
+                chatHistory.innerHTML += `
+                    <div class="flex justify-end items-end gap-2">
+                        <div class="gradient-bg text-white px-5 py-3 rounded-3xl rounded-br-md max-w-[80%] text-sm shadow-md shadow-purple-500/10 leading-relaxed whitespace-pre-wrap font-medium">
+                            ${text}
+                        </div>
+                    </div>
+                `;
+            } else {
+                chatHistory.innerHTML += `
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl gradient-bg text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-purple-500/20 mt-1">
+                            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                        </div>
+                        <div class="bg-white border border-slate-200/80 text-slate-800 px-5 py-3.5 rounded-3xl rounded-tl-md max-w-[85%] text-sm leading-relaxed whitespace-pre-wrap shadow-sm">
+                            ${text}
+                        </div>
+                    </div>
+                `;
+            }
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
         async function sendMessage() {
             const input = document.getElementById('user-input');
-            const welcomeContainer = document.getElementById('welcome-container');
             const chatHistory = document.getElementById('chat-history');
             const text = input.value.trim();
             if (!text) return;
 
-            welcomeContainer.classList.add('hidden');
-            chatHistory.classList.remove('hidden');
-
-            chatHistory.innerHTML += `
-                <div class="flex justify-end">
-                    <div class="bg-gray-100 text-gray-800 px-4 py-2.5 rounded-2xl max-w-[80%] text-sm">
-                        ${text}
-                    </div>
-                </div>
-            `;
             input.value = '';
 
+            // 1. Save User Message
+            await window.saveMessageToDB(text, 'user');
+
+            // 2. Add Loading Indicator
             const loadingId = 'loading-' + Date.now();
             chatHistory.innerHTML += `
                 <div id="${loadingId}" class="flex items-start gap-3">
-                    <i class="fa-solid fa-sparkles sparkle-icon mt-1"></i>
-                    <div class="text-gray-500 text-sm animate-pulse">Thinking...</div>
+                    <div class="w-8 h-8 rounded-xl gradient-bg text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-purple-500/20 mt-1">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                    </div>
+                    <div class="bg-white border border-slate-200/80 text-slate-400 px-5 py-3.5 rounded-3xl rounded-tl-md text-sm font-medium animate-pulse shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-circle-notch animate-spin text-purple-500"></i> Thinking...
+                    </div>
                 </div>
             `;
             chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -266,20 +372,21 @@
                 const data = await res.json();
                 const reply = data.choices[0]?.message?.content || "No response received.";
                 
-                document.getElementById(loadingId).outerHTML = `
-                    <div class="flex items-start gap-3">
-                        <i class="fa-solid fa-sparkles sparkle-icon mt-1"></i>
-                        <div class="text-gray-800 text-sm leading-relaxed max-w-[85%] whitespace-pre-wrap">
-                            ${reply}
-                        </div>
-                    </div>
-                `;
+                // Remove Loading
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) loadingElem.remove();
+
+                // 3. Save AI Reply
+                await window.saveMessageToDB(reply, 'ai');
+
             } catch (e) {
-                document.getElementById(loadingId).outerHTML = `
-                    <div class="text-red-500 text-xs">Error connecting to API. Please check your key.</div>
-                `;
+                const loadingElem = document.getElementById(loadingId);
+                if (loadingElem) {
+                    loadingElem.outerHTML = `
+                        <div class="text-rose-500 text-xs bg-rose-50 p-3 rounded-xl border border-rose-100">Error connecting to AI service. Please check your Groq API key.</div>
+                    `;
+                }
             }
-            chatHistory.scrollTop = chatHistory.scrollHeight;
         }
     </script>
 </body>
