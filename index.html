@@ -3,39 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dinu AI</title>
+    <title>Dinu AI - Ultimate Pro</title>
 
-    <!-- Tailwind CSS & FontAwesome Icons -->
+    <!-- Tailwind CSS, Icons & PDF.js -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-      }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-    <!-- Firebase SDK (Version 10+) -->
+    <!-- Firebase SDK -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-      import { 
-        getAuth, 
-        signInWithPopup, 
-        GoogleAuthProvider, 
-        createUserWithEmailAndPassword, 
-        signInWithEmailAndPassword, 
-        signOut, 
-        onAuthStateChanged 
-      } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-      import { 
-        getFirestore, 
-        collection, 
-        addDoc, 
-        query, 
-        orderBy, 
-        onSnapshot, 
-        serverTimestamp 
-      } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+      import { getFirestore, collection, addDoc, doc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyD9pm5dM5cFonPd2wkGW3-Mgk2Cy26hPQc",
@@ -48,407 +29,347 @@
       };
 
       const app = initializeApp(firebaseConfig);
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      const provider = new GoogleAuthProvider();
-
-      window.auth = auth;
-      window.db = db;
-      window.provider = provider;
+      window.auth = getAuth(app);
+      window.db = getFirestore(app);
+      window.provider = new GoogleAuthProvider();
       window.signInWithPopup = signInWithPopup;
       window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
       window.signInWithEmailAndPassword = signInWithEmailAndPassword;
       window.signOut = signOut;
       window.collection = collection;
       window.addDoc = addDoc;
+      window.doc = doc;
+      window.deleteDoc = deleteDoc;
       window.query = query;
       window.orderBy = orderBy;
       window.onSnapshot = onSnapshot;
       window.serverTimestamp = serverTimestamp;
 
-      let unsubscribe = null;
-
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(window.auth, (user) => {
         const authModal = document.getElementById('auth-modal');
         const mainApp = document.getElementById('main-app');
-        const userDisplay = document.getElementById('user-name-display');
-
         if (user) {
           authModal.classList.add('hidden');
           mainApp.classList.remove('hidden');
-          const name = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
-          userDisplay.innerText = name;
-          
-          loadChatHistory(user.uid);
+          document.getElementById('user-name-display').innerText = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+          loadSessions(user.uid);
         } else {
           authModal.classList.remove('hidden');
           mainApp.classList.add('hidden');
-          if (unsubscribe) unsubscribe();
         }
       });
-
-      function loadChatHistory(userId) {
-        const chatContainer = document.getElementById('chat-history');
-        const welcomeContainer = document.getElementById('welcome-container');
-        
-        const q = query(
-          collection(db, "users", userId, "messages"),
-          orderBy("createdAt", "asc")
-        );
-
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            welcomeContainer.classList.add('hidden');
-            chatContainer.classList.remove('hidden');
-          } else {
-            welcomeContainer.classList.remove('hidden');
-            chatContainer.classList.add('hidden');
-          }
-
-          chatContainer.innerHTML = '';
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            appendMessageUI(data.text, data.sender);
-          });
-          
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-      }
-
-      window.saveMessageToDB = async function(text, sender) {
-        if (!auth.currentUser) return;
-        try {
-          await addDoc(collection(db, "users", auth.currentUser.uid, "messages"), {
-            text: text,
-            sender: sender,
-            createdAt: serverTimestamp()
-          });
-        } catch (e) {
-          console.error("Error saving chat: ", e);
-        }
-      };
     </script>
 
     <style>
       body { font-family: 'Inter', sans-serif; }
       .gradient-bg { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); }
-      .gradient-text {
-        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #e11d48 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
+      .gradient-text { background: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #e11d48 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      ::-webkit-scrollbar { width: 5px; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-      .dark ::-webkit-scrollbar-thumb { background: #475569; }
+      .dark ::-webkit-scrollbar-thumb { background: #334155; }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col justify-between overflow-hidden transition-colors duration-200">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col transition-colors">
 
-    <!-- LOGIN / SIGNUP MODAL -->
+    <!-- Auth Modal -->
     <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
-        <div class="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-3xl p-8 w-full max-w-md shadow-2xl text-center relative overflow-hidden">
-            <div class="mb-6 flex justify-center items-center gap-2">
-                <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
-                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
-                </div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">Dinu AI</h1>
-            </div>
-            <p class="text-slate-500 dark:text-slate-400 text-sm mb-6 font-medium">Welcome back! Sign in to access your AI workspace.</p>
-
-            <div class="space-y-4 text-left">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Email Address</label>
-                    <input type="email" id="auth-email" placeholder="name@example.com" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Password</label>
-                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-white">
-                </div>
-
-                <div id="auth-error" class="text-rose-500 text-xs font-medium text-center hidden bg-rose-50 dark:bg-rose-900/30 p-2.5 rounded-lg border border-rose-100 dark:border-rose-800"></div>
-
-                <div class="flex gap-3 pt-2">
-                    <button onclick="handleLogin()" class="flex-1 gradient-bg text-white font-semibold py-3 rounded-xl text-sm shadow-lg shadow-purple-500/25">Log In</button>
-                    <button onclick="handleSignup()" class="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold py-3 rounded-xl text-sm">Sign Up</button>
-                </div>
-
-                <div class="flex items-center my-4">
-                    <div class="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
-                    <span class="px-3 text-xs text-slate-400 font-medium">OR</span>
-                    <div class="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
-                </div>
-
-                <button onclick="handleGoogleLogin()" class="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-3 shadow-sm">
-                    <i class="fa-brands fa-google text-red-500 text-base"></i> Continue with Google
+        <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl w-full max-w-md shadow-2xl text-center">
+            <h1 class="text-3xl font-extrabold mb-2">Dinu AI</h1>
+            <p class="text-slate-400 text-xs mb-6">Sign in to access your ultimate workspace</p>
+            <div class="space-y-4">
+                <input type="email" id="auth-email" placeholder="Email" class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-700 text-sm">
+                <input type="password" id="auth-password" placeholder="Password" class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-700 text-sm">
+                <button onclick="handleAuth(false)" class="w-full gradient-bg text-white py-3 rounded-xl font-bold text-sm shadow-md">Log In</button>
+                <button onclick="handleAuth(true)" class="w-full bg-slate-100 dark:bg-slate-700 py-3 rounded-xl text-sm font-semibold">Sign Up</button>
+                <button onclick="window.signInWithPopup(window.auth, window.provider)" class="w-full border border-slate-200 dark:border-slate-700 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-google text-red-500"></i> Continue with Google
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- MAIN APP INTERFACE -->
-    <div id="main-app" class="hidden flex h-screen w-full bg-slate-50 dark:bg-slate-900">
-        <!-- Sidebar Navigation -->
-        <aside class="w-16 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col justify-between items-center py-5 shadow-sm">
-            <div class="flex flex-col items-center gap-6">
-                <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center text-white shadow-md shadow-purple-500/20">
-                    <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+    <!-- Main Workspace -->
+    <div id="main-app" class="hidden flex h-screen w-full overflow-hidden">
+        
+        <!-- Left Sidebar (Multi Chat Threads) -->
+        <aside id="sidebar" class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col justify-between p-4 transition-all duration-300">
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center text-white"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></div>
+                        <span class="font-bold text-sm">Dinu AI</span>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="text-slate-400 hover:text-amber-500 p-1"><i class="fa-solid fa-moon"></i></button>
                 </div>
-                <button onclick="startNewChat()" title="New Chat" class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900 flex items-center justify-center transition">
-                    <i class="fa-solid fa-plus text-base"></i>
+
+                <button onclick="startNewSession()" class="w-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition">
+                    <i class="fa-solid fa-plus"></i> New Chat
                 </button>
+
+                <!-- Session List -->
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Recent Chats</p>
+                    <div id="session-list" class="space-y-1 max-h-[60vh] overflow-y-auto"></div>
+                </div>
             </div>
-            <div class="flex flex-col gap-4">
-                <button onclick="toggleDarkMode()" id="theme-toggle-btn" title="Toggle Theme" class="w-10 h-10 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-800 flex items-center justify-center transition">
-                    <i class="fa-solid fa-moon text-base"></i>
-                </button>
-                <button onclick="downloadChatHistory()" title="Download Chat" class="w-10 h-10 rounded-xl text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 flex items-center justify-center transition">
-                    <i class="fa-solid fa-download text-base"></i>
-                </button>
-                <button onclick="handleLogout()" title="Sign Out" class="w-10 h-10 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 flex items-center justify-center transition">
-                    <i class="fa-solid fa-arrow-right-from-bracket text-base"></i>
-                </button>
+
+            <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                <span id="user-name-display" class="truncate font-medium">User</span>
+                <button onclick="window.signOut(window.auth)" title="Sign Out" class="hover:text-rose-500"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
             </div>
         </aside>
 
-        <!-- Main Workspace -->
-        <div class="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 relative">
-            <header class="h-16 px-6 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-10">
-                <div class="flex items-center gap-2.5">
-                    <span class="font-bold text-slate-800 dark:text-white text-base">Dinu AI</span>
-                    <span class="bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Pro</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="startNewChat()" class="text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
-                        <i class="fa-solid fa-plus"></i> New Chat
-                    </button>
-                    <button onclick="downloadChatHistory()" class="text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-xl transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-arrow-down"></i> Export
-                    </button>
-                    <button onclick="handleLogout()" class="text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-xl transition">Sign Out</button>
-                </div>
+        <!-- Main Chat Area -->
+        <main class="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 relative">
+            <header class="h-14 px-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-md">
+                <span class="text-xs font-semibold text-slate-500" id="current-chat-title">New Conversation</span>
+                <button onclick="downloadChatHistory()" class="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200">
+                    <i class="fa-solid fa-download mr-1"></i> Export
+                </button>
             </header>
 
-            <!-- Chat Container -->
-            <main class="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full flex flex-col">
-                <div id="welcome-container" class="my-auto space-y-6 text-center py-10">
-                    <div class="inline-flex p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/30 mb-2">
-                        <i class="fa-solid fa-wand-magic-sparkles text-3xl"></i>
-                    </div>
-                    <div class="space-y-2">
-                        <h1 class="text-4xl font-extrabold text-slate-800 dark:text-white">Hello, <span id="user-name-display" class="gradient-text">User</span></h1>
-                        <p class="text-slate-500 dark:text-slate-400 text-base font-medium max-w-md mx-auto">Ask me anything, translate languages, write code, or generate ideas!</p>
-                    </div>
-                </div>
+            <div id="chat-history" class="flex-1 overflow-y-auto p-4 space-y-6 max-w-3xl mx-auto w-full hidden"></div>
 
-                <div id="chat-history" class="space-y-6 w-full hidden pb-6"></div>
-            </main>
+            <div id="welcome-container" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3">
+                <div class="p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/20"><i class="fa-solid fa-wand-magic-sparkles text-3xl"></i></div>
+                <h1 class="text-3xl font-extrabold">How can I help you today?</h1>
+                <p class="text-xs text-slate-400 max-w-sm">Ask anything, generate images, search the web, or analyze attached files!</p>
+            </div>
 
-            <!-- Input Bar & Controls -->
+            <!-- Input Controls -->
             <footer class="p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 max-w-3xl mx-auto w-full rounded-t-3xl shadow-lg">
-                <div class="relative flex items-end bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-2 border border-slate-200 dark:border-slate-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-200 dark:focus-within:ring-purple-900 transition">
-                    <textarea id="user-input" rows="1" placeholder="Type a message..." class="w-full bg-transparent text-slate-800 dark:text-white focus:outline-none text-sm resize-none px-3 py-2 max-h-32 min-h-[40px]" onkeydown="handleKeyPress(event)"></textarea>
-                    
-                    <button onclick="sendMessage()" class="gradient-bg text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-md shadow-purple-500/20 hover:opacity-95 transition flex-shrink-0 mb-0.5">
-                        <i class="fa-solid fa-paper-plane text-xs"></i>
-                    </button>
+                <div id="file-preview" class="hidden text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded-xl mb-2 flex justify-between items-center">
+                    <span id="file-name" class="truncate font-medium text-purple-600"></span>
+                    <button onclick="clearFile()" class="text-slate-400 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-2 font-medium">
-                    Dinu-AI saves your conversations across all devices automatically.
-                </p>
+
+                <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <input type="file" id="file-input" class="hidden" onchange="handleFile(event)">
+                    <button onclick="document.getElementById('file-input').click()" class="text-slate-400 hover:text-purple-600 p-2" title="Attach File"><i class="fa-solid fa-paperclip"></i></button>
+                    
+                    <!-- Voice Mic Button -->
+                    <button id="mic-btn" onclick="toggleVoiceInput()" class="text-slate-400 hover:text-purple-600 p-2" title="Voice Input"><i class="fa-solid fa-microphone"></i></button>
+
+                    <textarea id="user-input" rows="1" class="w-full bg-transparent focus:outline-none p-2 text-sm resize-none" placeholder="Ask, search, or generate image..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                    
+                    <button onclick="sendMessage()" class="gradient-bg text-white px-4 py-2 rounded-xl shadow-md"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+                </div>
             </footer>
-        </div>
+        </main>
     </div>
 
     <script>
-        const GROQ_API_KEY = "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"; // ඔයාගේ Groq Key එක මෙතනට දාන්න
+        const GROQ_API_KEY = "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"; // 🔑 Put your Groq Key here
+        let currentSessionId = null;
+        let attachedFile = null;
+        let recognition = null;
 
-        // Dark Mode Logic
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            updateThemeIcon(true);
-        } else {
-            document.documentElement.classList.remove('dark');
-            updateThemeIcon(false);
-        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        function toggleDarkMode() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.theme = isDark ? 'dark' : 'light';
-            updateThemeIcon(isDark);
-        }
+        function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
 
-        function updateThemeIcon(isDark) {
-            const btn = document.getElementById('theme-toggle-btn');
-            if (btn) {
-                btn.innerHTML = isDark ? `<i class="fa-solid fa-sun text-amber-400 text-base"></i>` : `<i class="fa-solid fa-moon text-base"></i>`;
-            }
-        }
-
-        async function handleLogin() {
+        async function handleAuth(isSignup) {
             const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
+            const pass = document.getElementById('auth-password').value;
+            if (isSignup) await window.createUserWithEmailAndPassword(window.auth, email, pass);
+            else await window.signInWithEmailAndPassword(window.auth, email, pass);
+        }
+
+        // Voice Input (Web Speech API)
+        function toggleVoiceInput() {
+            const micBtn = document.getElementById('mic-btn');
+            if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+                return alert("Voice input is not supported in this browser.");
+            }
+
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+                micBtn.classList.remove('text-red-500', 'animate-pulse');
+                return;
+            }
+
+            const SpeechReg = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechReg();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => { micBtn.classList.add('text-red-500', 'animate-pulse'); };
+            recognition.onresult = (e) => {
+                document.getElementById('user-input').value += e.results[0][0].transcript;
+                recognition.stop();
+                micBtn.classList.remove('text-red-500', 'animate-pulse');
+            };
+            recognition.onerror = () => { micBtn.classList.remove('text-red-500', 'animate-pulse'); };
+            recognition.start();
+        }
+
+        // Load All Chat Threads (Sidebar)
+        function loadSessions(userId) {
+            const list = document.getElementById('session-list');
+            const q = window.query(window.collection(window.db, "users", userId, "sessions"), window.orderBy("createdAt", "desc"));
+            window.onSnapshot(q, (snapshot) => {
+                list.innerHTML = '';
+                if (snapshot.empty) { startNewSession(); return; }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const active = doc.id === currentSessionId ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400';
+                    list.innerHTML += `
+                        <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${doc.id}', '${data.title}')">
+                            <span class="truncate w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title}</span>
+                            <button onclick="deleteSession(event, '${doc.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    `;
+                });
+                if (!currentSessionId && !snapshot.empty) switchSession(snapshot.docs[0].id, snapshot.docs[0].data().title);
+            });
+        }
+
+        async function startNewSession() {
+            if (!window.auth.currentUser) return;
+            const res = await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions"), {
+                title: "New Chat",
+                createdAt: window.serverTimestamp()
+            });
+            switchSession(res.id, "New Chat");
+        }
+
+        function switchSession(id, title) {
+            currentSessionId = id;
+            document.getElementById('current-chat-title').innerText = title;
+            loadMessages(id);
+        }
+
+        async function deleteSession(e, id) {
+            e.stopPropagation();
+            await window.deleteDoc(window.doc(window.db, "users", window.auth.currentUser.uid, "sessions", id));
+            if (currentSessionId === id) startNewSession();
+        }
+
+        function loadMessages(sessionId) {
+            const chatContainer = document.getElementById('chat-history');
+            const welcome = document.getElementById('welcome-container');
+            const q = window.query(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", sessionId, "messages"), window.orderBy("createdAt", "asc"));
+            
+            window.onSnapshot(q, (snapshot) => {
+                if (!snapshot.empty) { welcome.classList.add('hidden'); chatContainer.classList.remove('hidden'); }
+                else { welcome.classList.remove('hidden'); chatContainer.classList.add('hidden'); }
+                chatContainer.innerHTML = '';
+                snapshot.forEach(doc => appendMessageUI(doc.data().text, doc.data().sender));
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
+
+        // Web Search Integration (DuckDuckGo API)
+        async function fetchWebSearch(query) {
             try {
-                await window.signInWithEmailAndPassword(window.auth, email, password);
-            } catch (err) { showError(err.message); }
+                const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`);
+                const data = await res.json();
+                return data.AbstractText || data.RelatedTopics[0]?.Text || "No search results found.";
+            } catch { return "Search failed."; }
         }
 
-        async function handleSignup() {
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            try {
-                await window.createUserWithEmailAndPassword(window.auth, email, password);
-            } catch (err) { showError(err.message); }
-        }
-
-        async function handleGoogleLogin() {
-            try { await window.signInWithPopup(window.auth, window.provider); } 
-            catch (err) { showError(err.message); }
-        }
-
-        function handleLogout() { window.signOut(window.auth); }
-
-        function showError(msg) {
-            const errEl = document.getElementById('auth-error');
-            errEl.innerText = msg;
-            errEl.classList.remove('hidden');
-        }
-
-        function handleKeyPress(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
+        async function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('file-preview').classList.remove('hidden');
+            document.getElementById('file-name').innerText = file.name;
+            if (file.type === 'application/pdf') {
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    const pdf = await pdfjsLib.getDocument(new Uint8Array(evt.target.result)).promise;
+                    let text = '';
+                    for (let i = 1; i <= pdf.numPages; i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(item => item.str).join(' ') + '\n';
+                    attachedFile = { name: file.name, content: text };
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (evt) => { attachedFile = { name: file.name, content: evt.target.result }; };
+                reader.readAsText(file);
             }
         }
 
-        function startNewChat() {
-            const chatHistory = document.getElementById('chat-history');
-            const welcomeContainer = document.getElementById('welcome-container');
-            chatHistory.innerHTML = '';
-            chatHistory.classList.add('hidden');
-            welcomeContainer.classList.remove('hidden');
-        }
-
-        function copyText(text, btn) {
-            navigator.clipboard.writeText(text);
-            btn.innerHTML = `<i class="fa-solid fa-check text-green-500"></i>`;
-            setTimeout(() => {
-                btn.innerHTML = `<i class="fa-regular fa-copy"></i>`;
-            }, 2000);
-        }
-
-        function speakText(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.speak(utterance);
-            }
-        }
-
-        function downloadChatHistory() {
-            const chatBox = document.getElementById('chat-history');
-            if (!chatBox || chatBox.innerText.trim() === "") return alert("No chat history to export!");
-
-            const blob = new Blob([chatBox.innerText], { type: 'text/plain' });
-            const anchor = document.createElement('a');
-            anchor.href = URL.createObjectURL(blob);
-            anchor.download = `Dinu-AI-Chat-${new Date().toISOString().slice(0,10)}.txt`;
-            anchor.click();
-        }
+        function clearFile() { attachedFile = null; document.getElementById('file-preview').classList.add('hidden'); }
 
         function appendMessageUI(text, sender) {
             const chatHistory = document.getElementById('chat-history');
+            const isImage = text.startsWith('[IMAGE_GEN]:');
+            const content = isImage ? `<img src="${text.split(':')[1]}" class="rounded-xl w-full shadow-md">` : text;
 
-            if (sender === 'user') {
-                chatHistory.innerHTML += `
-                    <div class="flex justify-end items-end gap-2">
-                        <div class="gradient-bg text-white px-5 py-3 rounded-3xl rounded-br-md max-w-[80%] text-sm shadow-md shadow-purple-500/10 leading-relaxed font-medium whitespace-pre-wrap">
-                            ${text}
-                        </div>
-                    </div>
-                `;
-            } else {
-                chatHistory.innerHTML += `
-                    <div class="flex items-start gap-3 group">
-                        <div class="w-8 h-8 rounded-xl gradient-bg text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-purple-500/20 mt-1">
-                            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
-                        </div>
-                        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 px-5 py-3.5 rounded-3xl rounded-tl-md max-w-[85%] text-sm leading-relaxed shadow-sm relative whitespace-pre-wrap">
-                            ${text}
-                            <div class="flex items-center gap-3 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 text-slate-400 text-xs">
-                                <button onclick="copyText(\`${text.replace(/`/g, '\\`')}\`, this)" title="Copy text" class="hover:text-purple-600 dark:hover:text-purple-400 transition">
-                                    <i class="fa-regular fa-copy"></i>
-                                </button>
-                                <button onclick="speakText(\`${text.replace(/`/g, '\\`')}\`)" title="Read aloud" class="hover:text-purple-600 dark:hover:text-purple-400 transition">
-                                    <i class="fa-solid fa-volume-high"></i>
-                                </button>
+            chatHistory.innerHTML += `
+                <div class="flex ${sender === 'user' ? 'justify-end' : 'justify-start'}">
+                    <div class="${sender === 'user' ? 'gradient-bg text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'} px-5 py-3 rounded-2xl max-w-[85%] text-sm shadow-sm relative group">
+                        ${content}
+                        ${sender === 'ai' && !isImage ? `
+                            <div class="flex gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-slate-400 text-xs">
+                                <button onclick="navigator.clipboard.writeText(\`${text.replace(/`/g, '\\`')}\`)" title="Copy"><i class="fa-regular fa-copy"></i></button>
+                                <button onclick="window.speechSynthesis.speak(new SpeechSynthesisUtterance(\`${text.replace(/`/g, '\\`')}\`))" title="Read Aloud"><i class="fa-solid fa-volume-high"></i></button>
                             </div>
-                        </div>
+                        ` : ''}
                     </div>
-                `;
-            }
+                </div>
+            `;
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
-            const chatHistory = document.getElementById('chat-history');
-            const welcomeContainer = document.getElementById('welcome-container');
-            const text = input.value.trim();
-            if (!text) return;
+            let text = input.value.trim();
+            if (!text && !attachedFile) return;
 
-            welcomeContainer.classList.add('hidden');
-            chatHistory.classList.remove('hidden');
+            if (!currentSessionId) await startNewSession();
 
+            // 1. Image Generation Check
+            if (text.toLowerCase().includes('generate') || text.toLowerCase().includes('create an image') || text.toLowerCase().includes('draw')) {
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?nologo=true`;
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: '[IMAGE_GEN]:' + url, sender: 'ai', createdAt: window.serverTimestamp() });
+                input.value = ''; return;
+            }
+
+            // 2. Real-time Search Check
+            let searchContext = "";
+            if (text.toLowerCase().startsWith('search') || text.toLowerCase().includes('latest news') || text.toLowerCase().includes('weather')) {
+                const searchRes = await fetchWebSearch(text);
+                searchContext = `\n[Web Search Result]: ${searchRes}`;
+            }
+
+            // 3. User Message Prep
+            let fullPrompt = text;
+            if (attachedFile) fullPrompt += `\n[File Attached: ${attachedFile.name}]\nContent: ${attachedFile.content}`;
+            if (searchContext) fullPrompt += searchContext;
+
+            await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
             input.value = '';
+            clearFile();
 
-            // 1. Save User Message
-            await window.saveMessageToDB(text, 'user');
-
-            // 2. Add Animated Loading Indicator
-            const loadingId = 'loading-' + Date.now();
-            chatHistory.innerHTML += `
-                <div id="${loadingId}" class="flex items-start gap-3">
-                    <div class="w-8 h-8 rounded-xl gradient-bg text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-purple-500/20 mt-1">
-                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
-                    </div>
-                    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 px-5 py-3.5 rounded-3xl rounded-tl-md text-sm font-medium shadow-sm flex items-center gap-2">
-                        <i class="fa-solid fa-circle-notch animate-spin text-purple-500"></i> Dinu-AI is thinking...
-                    </div>
-                </div>
-            `;
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-
+            // 4. Call Groq API
             try {
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${GROQ_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: "llama-3.3-70b-versatile",
-                        messages: [{ role: "user", content: text }]
+                        messages: [{ role: "user", content: fullPrompt }]
                     })
                 });
                 const data = await res.json();
-                const reply = data.choices[0]?.message?.content || "No response received.";
-                
-                // Remove Loading
-                const loadingElem = document.getElementById(loadingId);
-                if (loadingElem) loadingElem.remove();
-
-                // 3. Save AI Reply
-                await window.saveMessageToDB(reply, 'ai');
-
-            } catch (e) {
-                const loadingElem = document.getElementById(loadingId);
-                if (loadingElem) {
-                    loadingElem.outerHTML = `
-                        <div class="text-rose-500 text-xs bg-rose-50 dark:bg-rose-900/30 p-3 rounded-xl border border-rose-100 dark:border-rose-800">Error connecting to AI service. Please check your Groq API key.</div>
-                    `;
-                }
+                const reply = data.choices[0]?.message?.content || "No answer received.";
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: reply, sender: 'ai', createdAt: window.serverTimestamp() });
+            } catch {
+                alert("Error connecting to AI service. Please check API key.");
             }
+        }
+
+        function downloadChatHistory() {
+            const chatBox = document.getElementById('chat-history');
+            if (!chatBox) return;
+            const blob = new Blob([chatBox.innerText], { type: 'text/plain' });
+            const anchor = document.createElement('a');
+            anchor.href = URL.createObjectURL(blob);
+            anchor.download = `Dinu-AI-Chat.txt`;
+            anchor.click();
         }
     </script>
 </body>
