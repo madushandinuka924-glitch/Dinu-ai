@@ -146,8 +146,8 @@
             <!-- Welcome Container -->
             <div id="welcome-container" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3 overflow-y-auto">
                 <div class="p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/20"><i class="fa-solid fa-wand-magic-sparkles text-3xl"></i></div>
-                <h1 class="text-2xl md:text-3xl font-extrabold">Welcome to Dinu AI!</h1>
-                <p class="text-xs text-slate-400 max-w-xs md:max-w-sm">How can I help you today? Created by Dinuka Madushan.</p>
+                <h1 class="text-2xl md:text-3xl font-extrabold">Welcome to Dinu AI</h1>
+                <p class="text-xs text-slate-400 max-w-xs md:max-w-sm">Created by Dinuka Madushan. How can I help you today?</p>
             </div>
 
             <!-- Input Controls -->
@@ -174,11 +174,11 @@
     </div>
 
     <script>
-        // 🔑 ඔබට අවශ්‍ය Groq API Key එක මෙතැනට ඇතුළත් කරන්න (Groq Dashboard එකෙන් ලබාගත හැක)
-        const GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"; 
+        // 🔑 මෙතැනට ඔයාගේ Groq API Key එක ඇතුළත් කරන්න
+        const GROQ_API_KEY = "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"; 
         
-        // Dinu AI සඳහා වන System Instruction (හැදුවේ කවුදැයි ඇසුවහොත් දිනුක මධුෂාන් ලෙස පවසයි)
-        const SYSTEM_PROMPT = "Your name is Dinu AI. You were created and developed by Dinuka Madushan (දිනුක මධුෂාන්). If anyone asks who made you, created you, or developed you, always mention that Dinuka Madushan created you.";
+        // System prompt - Dinu AI හැදුවේ දිනුක මධුෂාන් බව පැවසීමට
+        const SYSTEM_PROMPT = "Your name is Dinu AI. You were created and developed by Dinuka Madushan (දිනුක මධුෂාන්). If anyone asks who created you or who made you, always answer that Dinuka Madushan created you.";
 
         let currentSessionId = null;
         let attachedFile = null;
@@ -201,9 +201,7 @@
             try {
                 if (isSignup) await window.createUserWithEmailAndPassword(window.auth, email, pass);
                 else await window.signInWithEmailAndPassword(window.auth, email, pass);
-            } catch (err) {
-                alert(err.message);
-            }
+            } catch (e) { alert(e.message); }
         }
 
         function toggleVoiceInput() {
@@ -244,7 +242,7 @@
                     const data = docSnap.data();
                     const active = docSnap.id === currentSessionId ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400';
                     list.innerHTML += `
-                        <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${docSnap.id}', '${data.title || 'New Chat'}')">
+                        <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${docSnap.id}', '${(data.title || 'New Chat').replace(/'/g, "\\'")}')">
                             <span class="truncate w-36 md:w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title || 'New Chat'}</span>
                             <button onclick="deleteSession(event, '${docSnap.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
@@ -351,52 +349,56 @@
         }
 
         async function sendMessage() {
-            const input = document.getElementById('user-input');
-            let text = input.value.trim();
-            if (!text && !attachedFile) return;
-
-            if (!currentSessionId) await startNewSession();
-
-            const chatTitle = document.getElementById('current-chat-title').innerText;
-            if (chatTitle === "New Chat" || chatTitle === "New Conversation") {
-                const newTitle = text.slice(0, 20) + "...";
-                const sessionRef = window.doc(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId);
-                await window.updateDoc(sessionRef, { title: newTitle });
-                document.getElementById('current-chat-title').innerText = newTitle;
-            }
-
-            // Image generation trigger
-            if (text.toLowerCase().includes('generate') || text.toLowerCase().includes('create an image') || text.toLowerCase().includes('draw')) {
-                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?nologo=true`;
-                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
-                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: '[IMAGE_GEN]:' + url, sender: 'ai', createdAt: window.serverTimestamp() });
-                input.value = ''; return;
-            }
-
-            let searchContext = "";
-            if (text.toLowerCase().startsWith('search') || text.toLowerCase().includes('latest news') || text.toLowerCase().includes('weather')) {
-                const searchRes = await fetchWebSearch(text);
-                searchContext = `\n[Web Search Result]: ${searchRes}`;
-            }
-
-            let fullPrompt = text;
-            if (attachedFile) fullPrompt += `\n[File Attached: ${attachedFile.name}]\nContent: ${attachedFile.content}`;
-            if (searchContext) fullPrompt += searchContext;
-
-            await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
-            input.value = '';
-            clearFile();
-
-            if (!GROQ_API_KEY || GROQ_API_KEY === "YOUR_GROQ_API_KEY_HERE") {
-                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { 
-                    text: "කරුණාකර JavaScript කොටසේ GROQ_API_KEY එක ඇතුළත් කරන්න. (Please provide a valid Groq API Key).", 
-                    sender: 'ai', 
-                    createdAt: window.serverTimestamp() 
-                });
-                return;
-            }
-
             try {
+                const input = document.getElementById('user-input');
+                let text = input.value.trim();
+                if (!text && !attachedFile) return;
+
+                if (!currentSessionId) await startNewSession();
+
+                // Chat Title එක වෙනස් කිරීම
+                const chatTitle = document.getElementById('current-chat-title').innerText;
+                if (chatTitle === "New Chat" || chatTitle === "New Conversation") {
+                    const newTitle = text.slice(0, 20) + "...";
+                    const sessionRef = window.doc(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId);
+                    await window.updateDoc(sessionRef, { title: newTitle });
+                    document.getElementById('current-chat-title').innerText = newTitle;
+                }
+
+                // Image Generation
+                if (text.toLowerCase().includes('generate') || text.toLowerCase().includes('create an image') || text.toLowerCase().includes('draw')) {
+                    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?nologo=true`;
+                    await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
+                    await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: '[IMAGE_GEN]:' + url, sender: 'ai', createdAt: window.serverTimestamp() });
+                    input.value = ''; return;
+                }
+
+                let searchContext = "";
+                if (text.toLowerCase().startsWith('search') || text.toLowerCase().includes('latest news') || text.toLowerCase().includes('weather')) {
+                    const searchRes = await fetchWebSearch(text);
+                    searchContext = `\n[Web Search Result]: ${searchRes}`;
+                }
+
+                let fullPrompt = text;
+                if (attachedFile) fullPrompt += `\n[File Attached: ${attachedFile.name}]\nContent: ${attachedFile.content}`;
+                if (searchContext) fullPrompt += searchContext;
+
+                // User Message එක Save කිරීම
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: text, sender: 'user', createdAt: window.serverTimestamp() });
+                input.value = '';
+                clearFile();
+
+                // API Key Check එකක් කිරීම
+                if (!GROQ_API_KEY || GROQ_API_KEY === "YOUR_GROQ_API_KEY_HERE") {
+                    await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { 
+                        text: "කරුණාකර Script එකේ GROQ_API_KEY එක ලබා දෙන්න.", 
+                        sender: 'ai', 
+                        createdAt: window.serverTimestamp() 
+                    });
+                    return;
+                }
+
+                // AI Response එක ලබාගැනීම
                 const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
@@ -409,10 +411,12 @@
                     })
                 });
                 const data = await res.json();
-                const reply = data.choices[0]?.message?.content || "කණගාටුයි, මට පිළිතුරක් ලබා දීමට නොහැකි විය.";
+                const reply = data.choices?.[0]?.message?.content || "පිළිතුරක් ලබා ගැනීමට නොහැකි විය.";
+                
                 await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: reply, sender: 'ai', createdAt: window.serverTimestamp() });
+
             } catch (err) {
-                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { text: "AI සේවාව සමඟ සම්බන්ධ වීමේ දෝෂයක් සිදු විය.", sender: 'ai', createdAt: window.serverTimestamp() });
+                console.error("SendMessage Error:", err);
             }
         }
 
