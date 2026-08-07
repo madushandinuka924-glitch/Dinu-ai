@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dinu AI - Ultimate Pro</title>
 
-    <!-- Tailwind CSS, Icons & PDF.js -->
+    <!-- Tailwind CSS, FontAwesome & PDF.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,7 +16,7 @@
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-      import { getFirestore, collection, addDoc, doc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      import { getFirestore, collection, addDoc, doc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyD9pm5dM5cFonPd2wkGW3-Mgk2Cy26hPQc",
@@ -63,16 +63,16 @@
     <style>
       body { font-family: 'Inter', sans-serif; }
       .gradient-bg { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); }
-      .gradient-text { background: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #e11d48 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
       ::-webkit-scrollbar { width: 5px; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       .dark ::-webkit-scrollbar-thumb { background: #334155; }
+      .sidebar-transition { transition: transform 0.3s ease-in-out; }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col transition-colors">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen overflow-hidden">
 
     <!-- Auth Modal -->
-    <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
         <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl w-full max-w-md shadow-2xl text-center">
             <h1 class="text-3xl font-extrabold mb-2">Dinu AI</h1>
             <p class="text-slate-400 text-xs mb-6">Sign in to access your ultimate workspace</p>
@@ -89,17 +89,23 @@
     </div>
 
     <!-- Main Workspace -->
-    <div id="main-app" class="hidden flex h-screen w-full overflow-hidden">
+    <div id="main-app" class="hidden flex h-screen w-full relative overflow-hidden">
         
-        <!-- Left Sidebar (Multi Chat Threads) -->
-        <aside id="sidebar" class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col justify-between p-4 transition-all duration-300">
+        <!-- Overlay for Mobile Sidebar -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+        <!-- Sidebar (Multi Chat Threads & Responsive) -->
+        <aside id="sidebar" class="fixed md:relative z-50 w-64 h-full border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col justify-between p-4 sidebar-transition -translate-x-full md:translate-x-0">
             <div class="space-y-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center text-white"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></div>
                         <span class="font-bold text-sm">Dinu AI</span>
                     </div>
-                    <button onclick="toggleDarkMode()" class="text-slate-400 hover:text-amber-500 p-1"><i class="fa-solid fa-moon"></i></button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleDarkMode()" class="text-slate-400 hover:text-amber-500 p-1"><i class="fa-solid fa-moon"></i></button>
+                        <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
                 </div>
 
                 <button onclick="startNewSession()" class="w-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition">
@@ -120,9 +126,12 @@
         </aside>
 
         <!-- Main Chat Area -->
-        <main class="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 relative">
-            <header class="h-14 px-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-md">
-                <span class="text-xs font-semibold text-slate-500" id="current-chat-title">New Conversation</span>
+        <main class="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 w-full relative">
+            <header class="h-14 px-4 md:px-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-500 hover:text-slate-700"><i class="fa-solid fa-bars text-lg"></i></button>
+                    <span class="text-xs font-semibold text-slate-500" id="current-chat-title">New Conversation</span>
+                </div>
                 <button onclick="downloadChatHistory()" class="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200">
                     <i class="fa-solid fa-download mr-1"></i> Export
                 </button>
@@ -132,27 +141,27 @@
 
             <div id="welcome-container" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3">
                 <div class="p-4 rounded-3xl gradient-bg text-white shadow-xl shadow-purple-500/20"><i class="fa-solid fa-wand-magic-sparkles text-3xl"></i></div>
-                <h1 class="text-3xl font-extrabold">How can I help you today?</h1>
+                <h1 class="text-2xl md:text-3xl font-extrabold">How can I help you today?</h1>
                 <p class="text-xs text-slate-400 max-w-sm">Ask anything, generate images, search the web, or analyze attached files!</p>
             </div>
 
             <!-- Input Controls -->
-            <footer class="p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 max-w-3xl mx-auto w-full rounded-t-3xl shadow-lg">
+            <footer class="p-3 md:p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 max-w-3xl mx-auto w-full rounded-t-3xl shadow-lg">
                 <div id="file-preview" class="hidden text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded-xl mb-2 flex justify-between items-center">
                     <span id="file-name" class="truncate font-medium text-purple-600"></span>
                     <button onclick="clearFile()" class="text-slate-400 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
                 </div>
 
-                <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-1.5 md:gap-2 bg-slate-100 dark:bg-slate-800/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
                     <input type="file" id="file-input" class="hidden" onchange="handleFile(event)">
                     <button onclick="document.getElementById('file-input').click()" class="text-slate-400 hover:text-purple-600 p-2" title="Attach File"><i class="fa-solid fa-paperclip"></i></button>
                     
                     <!-- Voice Mic Button -->
                     <button id="mic-btn" onclick="toggleVoiceInput()" class="text-slate-400 hover:text-purple-600 p-2" title="Voice Input"><i class="fa-solid fa-microphone"></i></button>
 
-                    <textarea id="user-input" rows="1" class="w-full bg-transparent focus:outline-none p-2 text-sm resize-none" placeholder="Ask, search, or generate image..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                    <textarea id="user-input" rows="1" class="w-full bg-transparent focus:outline-none p-1.5 md:p-2 text-sm resize-none" placeholder="Ask, search, or generate image..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
                     
-                    <button onclick="sendMessage()" class="gradient-bg text-white px-4 py-2 rounded-xl shadow-md"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+                    <button onclick="sendMessage()" class="gradient-bg text-white px-3.5 py-2 rounded-xl shadow-md"><i class="fa-solid fa-paper-plane text-xs"></i></button>
                 </div>
             </footer>
         </main>
@@ -167,6 +176,13 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
         function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
 
         async function handleAuth(isSignup) {
             const email = document.getElementById('auth-email').value;
@@ -216,7 +232,7 @@
                     const active = doc.id === currentSessionId ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400';
                     list.innerHTML += `
                         <div class="flex items-center justify-between p-2 rounded-xl text-xs font-medium cursor-pointer ${active}" onclick="switchSession('${doc.id}', '${data.title}')">
-                            <span class="truncate w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title}</span>
+                            <span class="truncate w-36 md:w-40"><i class="fa-regular fa-message mr-1.5"></i>${data.title}</span>
                             <button onclick="deleteSession(event, '${doc.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                     `;
@@ -232,12 +248,16 @@
                 createdAt: window.serverTimestamp()
             });
             switchSession(res.id, "New Chat");
+            if (window.innerWidth < 768) toggleSidebar();
         }
 
         function switchSession(id, title) {
             currentSessionId = id;
             document.getElementById('current-chat-title').innerText = title;
             loadMessages(id);
+            if (window.innerWidth < 768 && !document.getElementById('sidebar').classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
         }
 
         async function deleteSession(e, id) {
@@ -319,6 +339,13 @@
             if (!text && !attachedFile) return;
 
             if (!currentSessionId) await startNewSession();
+
+            // Auto title update for new session
+            const chatTitle = document.getElementById('current-chat-title').innerText;
+            if (chatTitle === "New Chat" || chatTitle === "New Conversation") {
+                const newTitle = text.slice(0, 20) + "...";
+                await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId), { title: newTitle }, { merge: true });
+            }
 
             // 1. Image Generation Check
             if (text.toLowerCase().includes('generate') || text.toLowerCase().includes('create an image') || text.toLowerCase().includes('draw')) {
