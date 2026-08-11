@@ -403,7 +403,7 @@
                 clearFile();
 
                 // API Key Check එකක් කිරීම
-                if (!GROQ_API_KEY || GROQ_API_KEY === "YOUR_GROQ_API_KEY_HERE") {
+                if (!GROQ_API_KEY || GROQ_API_KEY === "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") {
                     await window.addDoc(window.collection(window.db, "users", window.auth.currentUser.uid, "sessions", currentSessionId, "messages"), { 
                         text: "කරුණාකර Script එකේ GROQ_API_KEY එක ලබා දෙන්න.", 
                         sender: 'ai', 
